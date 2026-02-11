@@ -73,35 +73,40 @@ class MaxNotifyEntity(NotifyEntity):
         # Иначе — chat_id. Так избегаем отправки chat_id=0 и ошибки "Invalid chatId: 0".
         uid = self._entry.data.get(CONF_USER_ID)
         cid = self._entry.data.get(CONF_CHAT_ID)
-        if uid and int(uid) != 0:
+        if uid is not None and int(uid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
-        elif cid and int(cid) != 0:
+        elif cid is not None and int(cid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
         else:
-            _LOGGER.error("Config must have non-zero user_id or chat_id")
+            _LOGGER.error(
+                "Config must have non-zero user_id or chat_id (user_id=%s, chat_id=%s)",
+                uid,
+                cid,
+            )
             return
 
-        _LOGGER.debug("Max API request: %s", url.split("?")[0] + "?user_id=... or chat_id=...")
-
-        params: dict[str, Any] = {}
         headers = {
             "Authorization": token,
             "Content-Type": "application/json",
         }
-        payload = {"text": text}
+        payload: dict[str, Any] = {"text": text}
 
         try:
             session = async_get_clientsession(self.hass)
             async with session.post(
                 url,
-                params=params,
                 json=payload,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status >= 400:
                     body = await resp.text()
-                    _LOGGER.error("Max API send failed: status=%s body=%s", resp.status, body[:500])
+                    _LOGGER.error(
+                        "Max API send failed: status=%s body=%s request_url=%s",
+                        resp.status,
+                        body[:500],
+                        url,
+                    )
                     return
                 _LOGGER.debug("Message sent successfully")
         except aiohttp.ClientError as e:
