@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Max Notify: Bot token",
+        "description": "Enter the bot access token (from the Integration section of the MAX partner platform).",
+        "data": {
+          "access_token": "Access token"
+        }
+      },
+      "recipient": {
+        "title": "Notification recipient",
+        "description": "Choose recipient type and enter user_id (direct message) or chat_id (group chat).",
+        "data": {
+          "recipient_type": "Recipient type",
+          "user_id": "User ID (number)",
+          "chat_id": "Chat ID (number)"
+        }
+      }
+    },
+    "error": {
+      "invalid_token": "Token cannot be empty",
+      "invalid_auth": "Invalid token. Check the token in the MAX platform Integration section.",
+      "cannot_connect": "Failed to connect to Max API. Check your network and try again.",
+      "unknown": "An unknown error occurred",
+      "user_id_required": "Enter User ID for direct message",
+      "chat_id_required": "Enter Chat ID for group chat",
+      "invalid_user_id": "User ID must be a positive number",
+      "invalid_chat_id": "Chat ID must be a positive number"
+    },
+    "abort": {
+      "already_configured": "This configuration is already added"
+    }
+  }
+}
