@@ -68,15 +68,14 @@ class MaxNotifyEntity(NotifyEntity):
             _LOGGER.error("No access token in config entry")
             return
 
-        # Формируем URL с одним параметром: только user_id или только chat_id.
-        # Приоритет: если в конфиге есть ненулевой user_id — всегда используем его (личное сообщение).
-        # Иначе — chat_id. Так избегаем отправки chat_id=0 и ошибки "Invalid chatId: 0".
+        # Как в официальной библиотеке @maxhub/max-bot-api: send({ user_id, text }) или
+        # send({ chat_id, text }). Получатель и текст передаём в теле запроса, без query.
         uid = self._entry.data.get(CONF_USER_ID)
         cid = self._entry.data.get(CONF_CHAT_ID)
         if uid is not None and int(uid) != 0:
-            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
+            payload = {"user_id": int(uid), "text": text}
         elif cid is not None and int(cid) != 0:
-            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
+            payload = {"chat_id": int(cid), "text": text}
         else:
             _LOGGER.error(
                 "Config must have non-zero user_id or chat_id (user_id=%s, chat_id=%s)",
@@ -85,11 +84,11 @@ class MaxNotifyEntity(NotifyEntity):
             )
             return
 
+        url = f"{API_BASE_URL}{API_PATH_MESSAGES}"
         headers = {
             "Authorization": token,
             "Content-Type": "application/json",
         }
-        payload: dict[str, Any] = {"text": text}
 
         try:
             session = async_get_clientsession(self.hass)
