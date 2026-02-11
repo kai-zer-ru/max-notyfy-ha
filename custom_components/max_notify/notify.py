@@ -72,15 +72,17 @@ class MaxNotifyEntity(NotifyEntity):
             _LOGGER.error("No access token in config entry")
             return
 
-        # По REST API (dev.max.ru/docs-api): получатель — в query (user_id или chat_id),
-        # тело — только NewMessageBody (text и опционально attachments, format и т.д.).
+        # Получатель в query (по REST API) и дублируем в теле — сервер может проверять оба,
+        # иначе при только query возвращается 403 "Invalid chatId: 0".
         uid = self._entry.data.get(CONF_USER_ID)
         cid = self._entry.data.get(CONF_CHAT_ID)
         if uid is not None and int(uid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
+            payload = {"text": text, "user_id": int(uid)}
             _LOGGER.debug("Recipient: user_id=%s", uid)
         elif cid is not None and int(cid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
+            payload = {"text": text, "chat_id": int(cid)}
             _LOGGER.debug("Recipient: chat_id=%s", cid)
         else:
             _LOGGER.error(
@@ -94,7 +96,6 @@ class MaxNotifyEntity(NotifyEntity):
             "Authorization": token,
             "Content-Type": "application/json",
         }
-        payload = {"text": text}
         _LOGGER.debug("Request: POST %s, body len=%d", url, len(text))
 
         try:
