@@ -68,21 +68,23 @@ class MaxNotifyEntity(NotifyEntity):
             _LOGGER.error("No access token in config entry")
             return
 
-        params: dict[str, Any] = {}
-        if self._entry.data.get(CONF_RECIPIENT_TYPE) == RECIPIENT_TYPE_USER:
+        # Формируем URL с одним параметром: только user_id или только chat_id.
+        # Не передаём оба, чтобы сервер не получал chat_id=0 для личных сообщений.
+        recipient_type = self._entry.data.get(CONF_RECIPIENT_TYPE)
+        if recipient_type == RECIPIENT_TYPE_USER:
             uid = self._entry.data.get(CONF_USER_ID)
-            if uid is not None:
-                params["user_id"] = uid
+            if uid is None:
+                _LOGGER.error("user_id missing in config entry")
+                return
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
         else:
             cid = self._entry.data.get(CONF_CHAT_ID)
-            if cid is not None:
-                params["chat_id"] = cid
+            if cid is None:
+                _LOGGER.error("chat_id missing in config entry")
+                return
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
 
-        if not params:
-            _LOGGER.error("Neither user_id nor chat_id in config entry")
-            return
-
-        url = f"{API_BASE_URL}{API_PATH_MESSAGES}"
+        params: dict[str, Any] = {}
         headers = {
             "Authorization": token,
             "Content-Type": "application/json",
