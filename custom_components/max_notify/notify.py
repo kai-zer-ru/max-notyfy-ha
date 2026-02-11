@@ -69,20 +69,19 @@ class MaxNotifyEntity(NotifyEntity):
             return
 
         # Формируем URL с одним параметром: только user_id или только chat_id.
-        # Не передаём оба, чтобы сервер не получал chat_id=0 для личных сообщений.
-        recipient_type = self._entry.data.get(CONF_RECIPIENT_TYPE)
-        if recipient_type == RECIPIENT_TYPE_USER:
-            uid = self._entry.data.get(CONF_USER_ID)
-            if uid is None:
-                _LOGGER.error("user_id missing in config entry")
-                return
+        # Приоритет: если в конфиге есть ненулевой user_id — всегда используем его (личное сообщение).
+        # Иначе — chat_id. Так избегаем отправки chat_id=0 и ошибки "Invalid chatId: 0".
+        uid = self._entry.data.get(CONF_USER_ID)
+        cid = self._entry.data.get(CONF_CHAT_ID)
+        if uid and int(uid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
-        else:
-            cid = self._entry.data.get(CONF_CHAT_ID)
-            if cid is None:
-                _LOGGER.error("chat_id missing in config entry")
-                return
+        elif cid and int(cid) != 0:
             url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
+        else:
+            _LOGGER.error("Config must have non-zero user_id or chat_id")
+            return
+
+        _LOGGER.debug("Max API request: %s", url.split("?")[0] + "?user_id=... or chat_id=...")
 
         params: dict[str, Any] = {}
         headers = {
