@@ -13,3 +13,5 @@ RECIPIENT_TYPE_CHAT = "chat"
 API_BASE_URL = "https://platform-api.max.ru"
 API_PATH_ME = "/me"
 API_PATH_MESSAGES = "/messages"
+# Версия API: в Go-клиенте добавляется query-параметр "v" к каждому запросу (api.go: version = "1.2.5")
+API_VERSION = "1.2.5"

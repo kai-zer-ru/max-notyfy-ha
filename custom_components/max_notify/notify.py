@@ -16,6 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     API_BASE_URL,
     API_PATH_MESSAGES,
+    API_VERSION,
     CONF_ACCESS_TOKEN,
     CONF_CHAT_ID,
     CONF_RECIPIENT_TYPE,
@@ -72,17 +73,17 @@ class MaxNotifyEntity(NotifyEntity):
             _LOGGER.error("No access token in config entry")
             return
 
-        # Получатель в query (по REST API) и дублируем в теле — сервер может проверять оба,
-        # иначе при только query возвращается 403 "Invalid chatId: 0".
+        # Как в max-bot-api-client-ts и max-bot-api-client-go: получатель в query, body — NewMessageBody.
+        # Go-клиент добавляет query-параметр "v" (версия API) к каждому запросу — без него возможен 403.
         uid = self._entry.data.get(CONF_USER_ID)
         cid = self._entry.data.get(CONF_CHAT_ID)
         if uid is not None and int(uid) != 0:
-            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
-            payload = {"text": text, "user_id": int(uid)}
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}&v={API_VERSION}"
+            payload = {"text": text}
             _LOGGER.debug("Recipient: user_id=%s", uid)
         elif cid is not None and int(cid) != 0:
-            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
-            payload = {"text": text, "chat_id": int(cid)}
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}&v={API_VERSION}"
+            payload = {"text": text}
             _LOGGER.debug("Recipient: chat_id=%s", cid)
         else:
             _LOGGER.error(
@@ -114,6 +115,11 @@ class MaxNotifyEntity(NotifyEntity):
                         body[:500],
                         url,
                     )
+                    if resp.status == 403 and "chatId" in body and "user_id=" in url:
+                        _LOGGER.info(
+                            "Подсказка: при 403 для личного сообщения получатель должен первым "
+                            "начать диалог с ботом в Max (например, нажать «Начать» или написать боту)."
+                        )
                     return
                 _LOGGER.info("Message sent successfully (status=%s)", resp.status)
         except aiohttp.ClientError as e:

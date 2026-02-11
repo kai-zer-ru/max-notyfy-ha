@@ -15,6 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     API_BASE_URL,
     API_PATH_ME,
+    API_VERSION,
     CONF_ACCESS_TOKEN,
     CONF_CHAT_ID,
     CONF_RECIPIENT_TYPE,
@@ -29,7 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def _validate_token(hass: HomeAssistant, token: str) -> str | None:
     """Validate the access token by calling GET /me. Returns error string or None."""
-    url = f"{API_BASE_URL}{API_PATH_ME}"
+    url = f"{API_BASE_URL}{API_PATH_ME}?v={API_VERSION}"
     headers = {"Authorization": token}
     try:
         session = async_get_clientsession(hass)
