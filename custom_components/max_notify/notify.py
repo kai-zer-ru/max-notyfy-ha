@@ -36,7 +36,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Max Notify notify entity from a config entry."""
-    async_add_entities([MaxNotifyEntity(entry)])
+    entity = MaxNotifyEntity(entry)
+    _LOGGER.debug("Setting up notify entity: %s (entry_id=%s)", entity.name, entry.entry_id)
+    async_add_entities([entity])
 
 
 class MaxNotifyEntity(NotifyEntity):
@@ -55,10 +57,12 @@ class MaxNotifyEntity(NotifyEntity):
         elif entry.data.get(CONF_CHAT_ID):
             suffix = f"chat_{entry.data[CONF_CHAT_ID]}"
         self._attr_name = f"Max {suffix}"
+        _LOGGER.debug("MaxNotifyEntity created: name=%s, recipient_type=%s", self._attr_name, entry.data.get(CONF_RECIPIENT_TYPE))
 
     async def async_send_message(self, message: str, title: str | None = None) -> None:
         """Send a message to the Max chat/user."""
         text = f"{title}\n{message}" if title else message
+        _LOGGER.debug("Preparing message: title=%s, len(message)=%d", title or "(none)", len(message))
         if len(text) > MAX_MESSAGE_LENGTH:
             _LOGGER.warning("Message truncated from %d to %d characters", len(text), MAX_MESSAGE_LENGTH)
             text = text[:MAX_MESSAGE_LENGTH]
@@ -68,14 +72,16 @@ class MaxNotifyEntity(NotifyEntity):
             _LOGGER.error("No access token in config entry")
             return
 
-        # Как в официальной библиотеке @maxhub/max-bot-api: send({ user_id, text }) или
-        # send({ chat_id, text }). Получатель и текст передаём в теле запроса, без query.
+        # По REST API (dev.max.ru/docs-api): получатель — в query (user_id или chat_id),
+        # тело — только NewMessageBody (text и опционально attachments, format и т.д.).
         uid = self._entry.data.get(CONF_USER_ID)
         cid = self._entry.data.get(CONF_CHAT_ID)
         if uid is not None and int(uid) != 0:
-            payload = {"user_id": int(uid), "text": text}
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?user_id={int(uid)}"
+            _LOGGER.debug("Recipient: user_id=%s", uid)
         elif cid is not None and int(cid) != 0:
-            payload = {"chat_id": int(cid), "text": text}
+            url = f"{API_BASE_URL}{API_PATH_MESSAGES}?chat_id={int(cid)}"
+            _LOGGER.debug("Recipient: chat_id=%s", cid)
         else:
             _LOGGER.error(
                 "Config must have non-zero user_id or chat_id (user_id=%s, chat_id=%s)",
@@ -84,11 +90,12 @@ class MaxNotifyEntity(NotifyEntity):
             )
             return
 
-        url = f"{API_BASE_URL}{API_PATH_MESSAGES}"
         headers = {
             "Authorization": token,
             "Content-Type": "application/json",
         }
+        payload = {"text": text}
+        _LOGGER.debug("Request: POST %s, body len=%d", url, len(text))
 
         try:
             session = async_get_clientsession(self.hass)
@@ -98,8 +105,8 @@ class MaxNotifyEntity(NotifyEntity):
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
+                body = await resp.text()
                 if resp.status >= 400:
-                    body = await resp.text()
                     _LOGGER.error(
                         "Max API send failed: status=%s body=%s request_url=%s",
                         resp.status,
@@ -107,7 +114,7 @@ class MaxNotifyEntity(NotifyEntity):
                         url,
                     )
                     return
-                _LOGGER.debug("Message sent successfully")
+                _LOGGER.info("Message sent successfully (status=%s)", resp.status)
         except aiohttp.ClientError as e:
             _LOGGER.error("Max API request failed: %s", e)
         except Exception as e:
